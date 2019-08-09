@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"rosi/util"
+	"strconv"
 	"strings"
 )
 
@@ -20,7 +21,9 @@ const (
 )
 
 var (
-	logger util.ILogger
+	err       error
+	logger    util.ILogger
+	pageTotal *int
 )
 
 func init() {
@@ -28,15 +31,37 @@ func init() {
 }
 
 func main() {
-	if err := util.New().CheckDirExist(outputDir); err != nil {
+	if err = util.New().CheckDirExist(outputDir); err != nil {
 		log.Panicln("file dir check failed:", err)
 	}
 
-	//ch := make(chan int)
-	crawlHomePage()
+	pointerWrapper := 1
+	pageTotal = &pointerWrapper
+	pageTotalValue := util.Scanf("Input your crawl page size:")
+	if pageTotalValue != "" {
+		*pageTotal, err = strconv.Atoi(pageTotalValue)
+		if err != nil {
+			logger.Info("please input really number type")
+		}
+	}
+
+	ch := make(chan int, *pageTotal)
+	i := 1
+	for {
+		if i > *pageTotal {
+			break
+		}
+		go crawlHomePage(i, ch)
+		i++
+	}
+	cashPool := 0
+	chNum := *pageTotal
+	for cashPool < chNum {
+		cashPool += <-ch
+	}
 }
 
-func crawlHomePage() {
+func crawlHomePage(pageIndex int, ch chan int) {
 	c := colly.NewCollector(
 		colly.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"),
 	)
@@ -46,13 +71,14 @@ func crawlHomePage() {
 		logger.Info("【Visiting】", r.URL.String())
 	})
 
-	// 获取每个list .pd10 a标签元素的详情链接
+	// 获取 a标签元素的详情链接
 	c.OnHTML(".i20 a[href]", func(e *colly.HTMLElement) {
 		d := c.Clone()
 		requestDetailPage(d, e)
 	})
 
-	c.Visit("http://rosi8.cc/rosixiezhen/")
+	c.Visit(fmt.Sprintf("http://rosi8.cc/rosixiezhen/list1%d.html", pageIndex))
+	ch <- 1
 }
 
 func requestDetailPage(c *colly.Collector, e *colly.HTMLElement) {
