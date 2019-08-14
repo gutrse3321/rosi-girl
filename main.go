@@ -54,10 +54,10 @@ func main() {
 		go crawlHomePage(i, ch)
 		i++
 	}
-	cashPool := 0
-	chNum := *pageTotal
-	for cashPool < chNum {
-		cashPool += <-ch
+	for {
+		if _, ok := <-ch; !ok {
+			break
+		}
 	}
 }
 
@@ -72,12 +72,21 @@ func crawlHomePage(pageIndex int, ch chan int) {
 	})
 
 	// 获取 a标签元素的详情链接
+	detailCh := make(chan string)
 	c.OnHTML(".i20 a[href]", func(e *colly.HTMLElement) {
-		d := c.Clone()
-		requestDetailPage(d, e)
+		go func(element *colly.HTMLElement) {
+			d := c.Clone()
+			detailCh <- element.Attr("href")
+			requestDetailPage(d, element)
+		}(e)
 	})
 
 	c.Visit(fmt.Sprintf("http://rosi8.cc/rosixiezhen/list1%d.html", pageIndex))
+	for {
+		if _, ok := <-detailCh; !ok {
+			break
+		}
+	}
 	ch <- 1
 }
 
@@ -91,7 +100,7 @@ func requestDetailPage(c *colly.Collector, e *colly.HTMLElement) {
 		logger.Normal("【Detail Visiting】: ", dr.URL.String())
 	})
 
-	// 获取标题名称创建漫画文件夹
+	// 获取标题名称创建写真文件夹
 	c.OnHTML(".info-bt .title", func(de *colly.HTMLElement) {
 		title = &de.Text
 		groupDir := fmt.Sprintf("%s%s", outputDir, *title)
