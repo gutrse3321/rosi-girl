@@ -9,6 +9,7 @@ package main
 import (
 	"fmt"
 	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/proxy"
 	"log"
 	"os"
 	"rosi/util"
@@ -65,6 +66,11 @@ func crawlHomePage(pageIndex int, ch chan int) {
 	c := colly.NewCollector(
 		colly.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"),
 	)
+	proxySwitcher, err := proxy.RoundRobinProxySwitcher("socks5://127.0.0.1:1080")
+	if err != nil {
+		log.Panicln(err)
+	}
+	c.SetProxyFunc(proxySwitcher)
 
 	c.OnRequest(func(r *colly.Request) {
 		util.New().SetHeader(r)
